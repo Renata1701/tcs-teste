@@ -177,7 +177,7 @@ docker run -d --name mongo-tcs -p 27017:27017 mongo:7
 |--------|------------------------------|-------------------------------------------------------------------------|
 | GET    | `/health`                    | Verifica se a API está no ar.                                          |
 | POST   | `/api/documents/upload`      | Recebe `multipart/form-data` (campo `files`), processa e salva as NF-e. |
-| GET    | `/api/documents`             | Lista as NF-es salvas, mais recentes primeiro.                          |
+| GET    | `/api/documents`             | Lista as NF-es salvas com paginação (`page`, `limit`). Mais recentes primeiro. |
 
 **Resposta de `POST /api/documents/upload`:**
 

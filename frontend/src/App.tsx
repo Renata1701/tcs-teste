@@ -8,8 +8,19 @@ const API_UPLOAD = `${API_BASE}/upload`;
 const EXTENSOES_ACEITAS = [".xml", ".pdf", ".zip"];
 const TAMANHO_MAXIMO_MB = 20;
 const QUANTIDADE_MAXIMA = 20;
-const ITENS_POR_PAGINA_LISTAS = 5;
-const TAMANHOS_PAGINA_DOCUMENTOS = [5, 10, 20];
+const TAMANHOS_PAGINA = [5, 10, 20];
+
+function irParaPaginaDaLista(
+  alterarPagina: (pagina: number) => void,
+  ancoraId: string
+) {
+  return (pagina: number) => {
+    alterarPagina(pagina);
+    document
+      .getElementById(ancoraId)
+      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  };
+}
 
 type Status =
   | "aguardando"
@@ -130,11 +141,8 @@ export default function App() {
   const [carregandoDocs, setCarregandoDocs] = useState(false);
   const [erroDocs, setErroDocs] = useState<string | null>(null);
 
-  const pagArquivos = usePaginacao(arquivos, ITENS_POR_PAGINA_LISTAS);
-  const pagResultados = usePaginacao(
-    resultadosDetalhados ?? [],
-    ITENS_POR_PAGINA_LISTAS
-  );
+  const pagArquivos = usePaginacao(arquivos, 5);
+  const pagResultados = usePaginacao(resultadosDetalhados ?? [], 5);
   const irParaPaginaArquivos = pagArquivos.setPagina;
   const irParaPaginaResultados = pagResultados.setPagina;
 
@@ -166,9 +174,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    void carregarDocumentos(paginacaoDocs.page, paginacaoDocs.limit);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void carregarDocumentos(1, 10);
+  }, [carregarDocumentos]);
 
   const adicionarArquivos = useCallback((lista: FileList | File[]) => {
     setErroGeral(null);
@@ -213,14 +220,15 @@ export default function App() {
         );
       }
 
+      const jaHaviaArquivos = atual.length > 0;
       const ultimaPagina = Math.max(
         1,
-        Math.ceil(resultado.length / ITENS_POR_PAGINA_LISTAS)
+        Math.ceil(resultado.length / pagArquivos.tamanhoPagina)
       );
-      irParaPaginaArquivos(ultimaPagina);
+      irParaPaginaArquivos(jaHaviaArquivos ? ultimaPagina : 1);
       return resultado;
     });
-  }, [irParaPaginaArquivos]);
+  }, [irParaPaginaArquivos, pagArquivos.tamanhoPagina]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.length) {
@@ -402,7 +410,7 @@ export default function App() {
                 <span className="list-header__count">{totalArquivos} arquivo(s)</span>
               </div>
 
-              <div className="file-list">
+              <div className="file-list" id="lista-arquivos">
                 {pagArquivos.fatia.map((a) => (
                   <div className="file-row" key={a.id}>
                     <div className="file-row__info">
@@ -436,8 +444,11 @@ export default function App() {
                 totalItens={pagArquivos.total}
                 inicio={pagArquivos.inicioExibicao}
                 fim={pagArquivos.fimExibicao}
-                onChange={pagArquivos.setPagina}
+                onChange={irParaPaginaDaLista(pagArquivos.setPagina, "lista-arquivos")}
                 rotuloItens="arquivo(s)"
+                tamanhosPagina={TAMANHOS_PAGINA}
+                tamanhoPagina={pagArquivos.tamanhoPagina}
+                onChangeTamanho={pagArquivos.setTamanhoPagina}
               />
 
               <div className="actions">
@@ -473,7 +484,7 @@ export default function App() {
                 {resultadosDetalhados.length} item(ns)
               </span>
             </div>
-            <div className="result-list">
+            <div className="result-list" id="lista-resultados">
               {pagResultados.fatia.map((r, idx) => (
                 <div
                   className={`result-row result-row--${r.status}`}
@@ -502,8 +513,14 @@ export default function App() {
               totalItens={pagResultados.total}
               inicio={pagResultados.inicioExibicao}
               fim={pagResultados.fimExibicao}
-              onChange={pagResultados.setPagina}
+              onChange={irParaPaginaDaLista(
+                pagResultados.setPagina,
+                "lista-resultados"
+              )}
               rotuloItens="resultado(s)"
+              tamanhosPagina={TAMANHOS_PAGINA}
+              tamanhoPagina={pagResultados.tamanhoPagina}
+              onChangeTamanho={pagResultados.setTamanhoPagina}
             />
           </section>
         )}
@@ -534,7 +551,10 @@ export default function App() {
           )}
 
           {documentos.length > 0 && (
-            <div className="doc-list">
+            <div
+              className={`doc-list${carregandoDocs ? " is-loading" : ""}`}
+              id="lista-documentos"
+            >
               {documentos.map((doc) => (
                 <div className="doc-row" key={doc.id}>
                   <div className="file-row__type">
@@ -563,9 +583,12 @@ export default function App() {
             fim={fimDocs}
             onChange={(page) => {
               void carregarDocumentos(page, paginacaoDocs.limit);
+              document
+                .getElementById("lista-documentos")
+                ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
             }}
             rotuloItens="documento(s)"
-            tamanhosPagina={TAMANHOS_PAGINA_DOCUMENTOS}
+            tamanhosPagina={TAMANHOS_PAGINA}
             tamanhoPagina={paginacaoDocs.limit}
             onChangeTamanho={(limit) => {
               void carregarDocumentos(1, limit);
