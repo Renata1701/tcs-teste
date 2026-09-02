@@ -1,0 +1,3 @@
+Este é um arquivo de texto simples (.txt).
+Use este arquivo para testar a validação de formato não permitido no upload.
+Formatos aceitos pela aplicação: .xml, .pdf, .zip.

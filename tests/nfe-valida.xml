@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">
+  <NFe>
+    <infNFe Id="NFe35240512345678000190550010000000011000000010" versao="4.00">
+      <ide>
+        <cUF>31</cUF>
+        <natOp>REMESSA DE MINERIO</natOp>
+        <mod>55</mod>
+        <serie>1</serie>
+        <nNF>1</nNF>
+        <dhEmi>2024-05-10T08:30:00-03:00</dhEmi>
+      </ide>
+      <emit>
+        <CNPJ>12345678000190</CNPJ>
+        <xNome>MINERADORA SARZEDO LTDA</xNome>
+        <enderEmit>
+          <xMun>Sarzedo</xMun>
+          <UF>MG</UF>
+        </enderEmit>
+      </emit>
+      <det nItem="1">
+        <prod>
+          <cProd>MIN001</cProd>
+          <cEAN>SEM GTIN</cEAN>
+          <xProd>MINERIO DE FERRO - GRANULADO</xProd>
+          <NCM>26011100</NCM>
+          <CFOP>5101</CFOP>
+          <uCom>TON</uCom>
+          <qCom>27.500</qCom>
+          <vUnCom>0.00</vUnCom>
+          <vProd>0.00</vProd>
+        </prod>
+      </det>
+      <det nItem="2">
+        <prod>
+          <cProd>MIN002</cProd>
+          <cEAN>SEM GTIN</cEAN>
+          <xProd>MINERIO DE FERRO - FINOS</xProd>
+          <NCM>26011100</NCM>
+          <CFOP>5101</CFOP>
+          <uCom>TON</uCom>
+          <qCom>18.250</qCom>
+          <vUnCom>0.00</vUnCom>
+          <vProd>0.00</vProd>
+        </prod>
+      </det>
+      <total>
+        <ICMSTot>
+          <vNF>0.00</vNF>
+        </ICMSTot>
+      </total>
+    </infNFe>
+  </NFe>
+  <protNFe versao="4.00">
+    <infProt>
+      <chNFe>35240512345678000190550010000000011000000010</chNFe>
+      <cStat>100</cStat>
+      <xMotivo>Autorizado o uso da NF-e</xMotivo>
+    </infProt>
+  </protNFe>
+</nfeProc>
