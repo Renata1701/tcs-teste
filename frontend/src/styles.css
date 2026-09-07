@@ -151,6 +151,15 @@ body {
 .alert--erro {
   background: var(--vermelho-claro);
   color: var(--vermelho);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.alert--erro .btn {
+  flex: 0 0 auto;
 }
 
 .list-header {

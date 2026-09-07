@@ -4,8 +4,16 @@ import { usePaginacao } from "./hooks/usePaginacao";
 import { consolidarStatus, resultadosDoArquivo } from "./lib/resultados";
 
 const API_BASE =
-  import.meta.env.VITE_API_URL ?? "http://localhost:3333/api/documents";
+  import.meta.env.VITE_API_URL ?? "/api/documents";
 const API_UPLOAD = `${API_BASE}/upload`;
+
+function mensagemDeRede(error: unknown): string {
+  const texto = error instanceof Error ? error.message : "";
+  if (texto === "Failed to fetch" || texto === "NetworkError when attempting to fetch resource.") {
+    return "Não foi possível conectar à API. Confirme se o backend está em execução e recarregue a página.";
+  }
+  return texto || "Não foi possível carregar os documentos processados.";
+}
 
 const EXTENSOES_ACEITAS = [".xml", ".pdf", ".zip"];
 const TAMANHO_MAXIMO_MB = 20;
@@ -153,28 +161,38 @@ export default function App() {
   const carregarDocumentos = useCallback(async (page: number, limit: number) => {
     setCarregandoDocs(true);
     setErroDocs(null);
-    try {
-      const resposta = await fetch(
-        `${API_BASE}?page=${page}&limit=${limit}`
-      );
-      const corpo = await resposta.json().catch(() => null);
-      if (!resposta.ok) {
-        throw new Error(
-          corpo?.message || `Falha ao listar documentos (HTTP ${resposta.status}).`
+
+    const tentativas = 3;
+    let ultimoErro: unknown = null;
+
+    for (let tentativa = 1; tentativa <= tentativas; tentativa += 1) {
+      try {
+        const resposta = await fetch(
+          `${API_BASE}?page=${page}&limit=${limit}`
         );
+        const corpo = await resposta.json().catch(() => null);
+        if (!resposta.ok) {
+          throw new Error(
+            corpo?.message || `Falha ao listar documentos (HTTP ${resposta.status}).`
+          );
+        }
+        setDocumentos(corpo?.nfes ?? []);
+        setPaginacaoDocs(
+          corpo?.paginacao ?? { page, limit, total: 0, totalPages: 1 }
+        );
+        setErroDocs(null);
+        setCarregandoDocs(false);
+        return;
+      } catch (error: unknown) {
+        ultimoErro = error;
+        if (tentativa < tentativas) {
+          await new Promise((resolve) => setTimeout(resolve, 700 * tentativa));
+        }
       }
-      setDocumentos(corpo?.nfes ?? []);
-      setPaginacaoDocs(
-        corpo?.paginacao ?? { page, limit, total: 0, totalPages: 1 }
-      );
-    } catch (error: any) {
-      setErroDocs(
-        error?.message ||
-          "Não foi possível carregar os documentos processados."
-      );
-    } finally {
-      setCarregandoDocs(false);
     }
+
+    setErroDocs(mensagemDeRede(ultimoErro));
+    setCarregandoDocs(false);
   }, []);
 
   useEffect(() => {
@@ -538,7 +556,18 @@ export default function App() {
             </span>
           </div>
 
-          {erroDocs && <div className="alert alert--erro">{erroDocs}</div>}
+          {erroDocs && (
+            <div className="alert alert--erro">
+              {erroDocs}{" "}
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => void carregarDocumentos(1, paginacaoDocs.limit)}
+              >
+                Tentar novamente
+              </button>
+            </div>
+          )}
 
           {carregandoDocs && documentos.length === 0 && (
             <p className="empty-state">Carregando documentos…</p>
