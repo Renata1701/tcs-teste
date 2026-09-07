@@ -1,6 +1,7 @@
 import { parseStringPromise } from "xml2js";
 import { AppError } from "../errors/AppError";
 import { IDadosNFeExtraidos, IProdutoExtraido } from "../types/document";
+import { parseQuantidadeObrigatoria } from "../utils/quantidade";
 
 /**
  * Extrai o texto de um nó que pode vir como string simples ou como
@@ -9,12 +10,6 @@ import { IDadosNFeExtraidos, IProdutoExtraido } from "../types/document";
 function texto(valor: any): string {
   if (Array.isArray(valor)) return String(valor[0] ?? "").trim();
   return String(valor ?? "").trim();
-}
-
-function numero(valor: any): number {
-  const str = texto(valor).replace(",", ".");
-  const n = parseFloat(str);
-  return Number.isNaN(n) ? 0 : n;
 }
 
 /**
@@ -110,7 +105,10 @@ export async function parseNFeXml(
     }
     const codigo = texto(prod.cProd);
     const descricao = texto(prod.xProd);
-    const quantidade = numero(prod.qCom);
+    const quantidade = parseQuantidadeObrigatoria(
+      prod.qCom,
+      `item ${index + 1} de "${nomeArquivo}"`
+    );
 
     if (!codigo || !descricao) {
       throw new AppError(

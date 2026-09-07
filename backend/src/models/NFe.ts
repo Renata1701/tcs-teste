@@ -20,7 +20,15 @@ const ProdutoSchema = new Schema<IProduto>(
   {
     codigo: { type: String, required: true },
     descricao: { type: String, required: true },
-    quantidade: { type: Number, required: true },
+    quantidade: {
+      type: Number,
+      required: true,
+      min: [0.000001, "A quantidade do produto deve ser maior que zero."],
+      validate: {
+        validator: (v: number) => Number.isFinite(v) && v > 0,
+        message: "A quantidade do produto é obrigatória e deve ser maior que zero.",
+      },
+    },
   },
   { _id: false }
 );

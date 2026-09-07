@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Paginacao } from "./components/Paginacao";
 import { usePaginacao } from "./hooks/usePaginacao";
+import { consolidarStatus, resultadosDoArquivo } from "./lib/resultados";
 
-const API_BASE = "http://localhost:3333/api/documents";
+const API_BASE =
+  import.meta.env.VITE_API_URL ?? "http://localhost:3333/api/documents";
 const API_UPLOAD = `${API_BASE}/upload`;
 
 const EXTENSOES_ACEITAS = [".xml", ".pdf", ".zip"];
@@ -27,6 +29,7 @@ type Status =
   | "enviando"
   | "processando"
   | "sucesso"
+  | "parcial"
   | "erro";
 
 interface ArquivoSelecionado {
@@ -110,6 +113,7 @@ const STATUS_LABEL: Record<Status, string> = {
   enviando: "Enviando",
   processando: "Processando",
   sucesso: "Sucesso",
+  parcial: "Parcial",
   erro: "Erro",
 };
 
@@ -258,10 +262,10 @@ export default function App() {
   };
 
   const enviarDocumentos = async () => {
-    const validos = arquivos.filter((a) => a.status !== "erro");
+    const pendentes = arquivos.filter((a) => a.status === "aguardando");
 
-    if (!validos.length) {
-      setErroGeral("Nenhum arquivo válido para enviar.");
+    if (!pendentes.length) {
+      setErroGeral("Nenhum arquivo pendente para enviar.");
       return;
     }
 
@@ -272,12 +276,14 @@ export default function App() {
 
     setArquivos((atual) =>
       atual.map((a) =>
-        a.status === "erro" ? a : { ...a, status: "enviando", mensagem: undefined }
+        a.status === "aguardando"
+          ? { ...a, status: "enviando", mensagem: undefined }
+          : a
       )
     );
 
     const formData = new FormData();
-    validos.forEach((a) => formData.append("files", a.file));
+    pendentes.forEach((a) => formData.append("files", a.file));
 
     try {
       setArquivos((atual) =>
@@ -305,19 +311,13 @@ export default function App() {
 
       setArquivos((atual) =>
         atual.map((a) => {
-          if (a.status === "erro") return a;
-          const encontrado = resultados.find((r) => r.arquivo === a.file.name);
-          if (!encontrado) {
-            return {
-              ...a,
-              status: "erro",
-              mensagem: "Nenhum retorno do servidor para este arquivo.",
-            };
-          }
+          if (a.status !== "processando") return a;
+          const relacionados = resultadosDoArquivo(a.file.name, resultados);
+          const consolidado = consolidarStatus(relacionados);
           return {
             ...a,
-            status: encontrado.status === "sucesso" ? "sucesso" : "erro",
-            mensagem: encontrado.mensagem,
+            status: consolidado.status,
+            mensagem: consolidado.mensagem,
           };
         })
       );

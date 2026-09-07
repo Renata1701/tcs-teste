@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "test": "node --test --require ts-node/register src/utils/quantidade.test.ts src/utils/mongoUri.test.ts src/services/xml.service.test.ts src/services/pdf.extractors.test.ts"
   },
   "dependencies": {
     "adm-zip": "^0.5.10",

@@ -81,7 +81,12 @@ tcs-documentos/
 - Upload de múltiplos arquivos simultaneamente, por seleção ou **drag and drop**.
 - Aceita `.xml`, `.pdf` e `.zip` (até 20 arquivos, até 20MB cada).
 - Lista os arquivos selecionados antes do envio, com nome, tamanho, tipo e status
-  (**Aguardando → Enviando → Processando → Sucesso/Erro**).
+  (**Aguardando → Enviando → Processando → Sucesso/Parcial/Erro**).
+- Pacotes ZIP recebem status consolidado a partir dos arquivos internos
+  (`zip » arquivo.xml`), sem tratar o ZIP como erro quando o conteúdo foi processado.
+- Apenas arquivos com status **Aguardando** entram no próximo envio; documentos
+  já processados não são reenviados.
+- Quantidade do produto é obrigatória e deve ser maior que zero.
 - Permite remover um arquivo antes do envio e possui botões **"Limpar arquivos"**
   e **"Enviar documentos"**.
 - Exibe mensagens de sucesso/erro **individualmente por arquivo**, inclusive para
@@ -90,8 +95,9 @@ tcs-documentos/
 - Back-end extrai de cada NF-e: chave de acesso, CNPJ do emitente e a lista de
   produtos (código, descrição e quantidade), percorrendo **todos** os elementos
   `<det>` do XML.
-- ZIP é descompactado em memória; diretórios são ignorados; ZIP vazio ou com
-  formatos não permitidos dentro dele geram erros específicos por entrada.
+- ZIP é descompactado em memória; diretórios são ignorados; ZIP vazio, com
+  formatos não permitidos, com mais de 50 entradas ou com mais de 50MB
+  descompactados é rejeitado. Cada entrada interna também respeita o limite de 20MB.
 - Persistência em MongoDB, com verificação de **duplicidade pela chave de acesso**
   antes de salvar.
 - Listagem das NF-es salvas (`GET /api/documents`), ordenadas das mais recentes
@@ -101,7 +107,9 @@ tcs-documentos/
 
 - **`multer.memoryStorage()`**: os arquivos nunca tocam o disco do servidor;
   tudo é processado em memória (`Buffer`) e descartado após o processamento,
-  o que simplifica a implantação e evita lixo em disco.
+  o que simplifica a implantação e evita lixo em disco. O lote é processado
+  em sequência e o ZIP tem teto de tamanho descompactado para reduzir o risco
+  de consumo excessivo de RAM.
 - **Uma linha de erro por arquivo, nunca aborta o lote inteiro**: o endpoint de
   upload sempre retorna `200` com um array `resultados`, no qual cada arquivo
   (ou entrada de ZIP) tem seu próprio `status` (`sucesso`/`erro`) e `mensagem`.
@@ -163,7 +171,16 @@ O back-end lê a variável `MONGODB_URI` do arquivo `.env` (veja `.env.example`)
 ```
 MONGODB_URI=mongodb://127.0.0.1:27017/tcs_documentos
 PORT=3333
+CORS_ORIGIN=http://localhost:5173
 ```
+
+A URI do MongoDB é mascarada nos logs (usuário e senha não são impressos).
+`CORS_ORIGIN` é opcional: se definida, apenas as origens listadas (separadas
+por vírgula) são aceitas. Sem ela, o CORS permanece aberto para facilitar o
+desenvolvimento local.
+
+O front-end lê `VITE_API_URL` (veja `frontend/.env.example`). Sem essa variável,
+usa `http://localhost:3333/api/documents`.
 
 Para rodar um MongoDB local rapidamente com Docker:
 
@@ -209,15 +226,29 @@ A pasta [`tests/`](./tests) contém arquivos prontos (XML válido/inválido, PDF
 exemplo, `.txt` não permitido e pacotes ZIP) e instruções de uso — veja
 [`tests/README.md`](./tests/README.md).
 
+Testes automatizados:
+
+```bash
+cd backend
+npm test
+```
+
+Cobrem quantidade obrigatória, mascaramento da URI do MongoDB e parse de XML
+(incluindo documento incompleto).
+
 ## Limitações
 
 - O parser de PDF depende de texto extraível; **PDFs escaneados como imagem**
   não têm texto extraível e exigiriam **OCR**, o que **não está contemplado
   nesta versão**.
-- O reconhecimento de campos no PDF é baseado em expressões regulares
-  ajustadas para o formato de teste combinado (`PRODUTO: CODIGO=...;
-  DESCRICAO=...; QUANTIDADE=...`); DANFEs reais de diferentes emissores podem
-  ter layouts distintos e exigir ajustes nas expressões regulares.
+- Em DANFE com texto extraível, o CNPJ do emitente vem da chave de acesso
+  (posições 7–20) e é confirmado pelos rótulos `EMITENTE` / `CNPJ DO EMITENTE`.
+  Produtos são lidos no formato de teste do projeto, em linhas rotuladas ou
+  em linhas tabulares típicas de DANFE (código, descrição, NCM, CFOP, UN,
+  quantidade). Layouts muito atípicos ainda podem exigir ajuste.
+- O upload em memória é adequado ao desafio; em produção com grande volume,
+  o recomendado é fila de processamento e armazenamento em disco ou object
+  storage.
 - Não há autenticação/autorização — qualquer cliente com acesso à rede pode
   enviar documentos.
 - Não há validação criptográfica da assinatura digital do XML nem validação
@@ -229,10 +260,9 @@ exemplo, `.txt` não permitido e pacotes ZIP) e instruções de uso — veja
 - **XML**: processado de acordo com a estrutura padrão de NF-e (`nfeProc/NFe/infNFe`
   e `NFe/infNFe`). Variações fora do padrão oficial da SEFAZ podem não ser
   reconhecidas.
-- **PDF**: a extração pode variar conforme o layout do DANFE gerado por cada
-  emissor; foi implementada e testada para o formato de teste especificado
-  neste desafio. PDFs escaneados por imagem exigiriam OCR (ex.: Tesseract) e
-  não são contemplados nesta versão.
+- **PDF**: a extração cobre o formato de teste do desafio e DANFEs textuais
+  com seção de emitente e tabela de produtos. PDFs escaneados por imagem
+  exigiriam OCR (ex.: Tesseract) e não são contemplados nesta versão.
 - Em um cenário de produção, itens adicionais seriam recomendados:
   - **Autenticação/autorização** (ex.: JWT, OAuth2) por transportadora.
   - **Filas de processamento** (ex.: RabbitMQ/SQS) para lotes grandes, evitando

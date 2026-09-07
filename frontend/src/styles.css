@@ -444,6 +444,11 @@ body {
   color: var(--verde-escuro);
 }
 
+.badge--parcial {
+  background: #fff4e0;
+  color: var(--amarelo);
+}
+
 .badge--erro {
   background: var(--vermelho-claro);
   color: var(--vermelho);

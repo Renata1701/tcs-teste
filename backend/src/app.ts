@@ -5,7 +5,18 @@ import { AppError } from "./errors/AppError";
 
 const app = express();
 
-app.use(cors());
+const origensPermitidas = (process.env.CORS_ORIGIN ?? "")
+  .split(",")
+  .map((origem) => origem.trim())
+  .filter(Boolean);
+
+app.use(
+  cors(
+    origensPermitidas.length > 0
+      ? { origin: origensPermitidas }
+      : undefined
+  )
+);
 app.use(express.json());
 
 app.get("/health", (_req: Request, res: Response) => {

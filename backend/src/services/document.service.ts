@@ -13,6 +13,9 @@ import {
 
 const EXTENSOES_PERMITIDAS = [".xml", ".pdf", ".zip"];
 const EXTENSOES_PERMITIDAS_NO_ZIP = [".xml", ".pdf"];
+const LIMITE_ENTRADAS_ZIP = 50;
+const LIMITE_DESCOMPACTADO_BYTES = 50 * 1024 * 1024;
+const LIMITE_ENTRADA_ZIP_BYTES = 20 * 1024 * 1024;
 
 function obterExtensao(nome: string): string {
   const idx = nome.lastIndexOf(".");
@@ -149,11 +152,46 @@ async function processarZip(
     ];
   }
 
+  if (entradas.length > LIMITE_ENTRADAS_ZIP) {
+    return [
+      {
+        arquivo: nomeZip,
+        status: StatusProcessamento.ERRO,
+        mensagem: `O arquivo ZIP "${nomeZip}" excede o limite de ${LIMITE_ENTRADAS_ZIP} arquivos internos.`,
+      },
+    ];
+  }
+
+  const tamanhoDescompactado = entradas.reduce((total, entry) => {
+    const tamanho = Number(entry.header?.size ?? 0);
+    return total + (Number.isFinite(tamanho) ? tamanho : 0);
+  }, 0);
+
+  if (tamanhoDescompactado > LIMITE_DESCOMPACTADO_BYTES) {
+    return [
+      {
+        arquivo: nomeZip,
+        status: StatusProcessamento.ERRO,
+        mensagem: `O conteúdo descompactado de "${nomeZip}" excede o limite de 50MB.`,
+      },
+    ];
+  }
+
   const resultados: IResultadoProcessamento[] = [];
 
   for (const entry of entradas) {
     const nomeInterno = `${nomeZip} » ${entry.entryName}`;
     const extensao = obterExtensao(entry.entryName);
+    const tamanhoEntrada = Number(entry.header?.size ?? 0);
+
+    if (tamanhoEntrada > LIMITE_ENTRADA_ZIP_BYTES) {
+      resultados.push({
+        arquivo: nomeInterno,
+        status: StatusProcessamento.ERRO,
+        mensagem: `Arquivo interno "${entry.entryName}" excede o limite de 20MB após descompactação.`,
+      });
+      continue;
+    }
 
     if (!EXTENSOES_PERMITIDAS_NO_ZIP.includes(extensao)) {
       resultados.push({
